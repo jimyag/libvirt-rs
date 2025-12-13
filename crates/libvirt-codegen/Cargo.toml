@@ -3,7 +3,14 @@ name = "libvirt-codegen"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+keywords.workspace = true
+categories.workspace = true
+rust-version.workspace = true
 description = "Code generator for libvirt protocol (.x files)"
+readme = "README.md"
 
 [[bin]]
 name = "test-parse"

@@ -7,12 +7,18 @@ version = "0.1.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/jimyag/libvirt-rs"
+homepage = "https://github.com/jimyag/libvirt-rs"
+documentation = "https://docs.rs/libvirt"
+authors = ["jimyag"]
+keywords = ["libvirt", "virtualization", "kvm", "qemu"]
+categories = ["api-bindings", "virtualization"]
+rust-version = "1.75"
 
 [workspace.dependencies]
-# Internal crates
-libvirt-xdr = { path = "crates/libvirt-xdr" }
-libvirt-codegen = { path = "crates/libvirt-codegen" }
-libvirt = { path = "crates/libvirt" }
+# Internal crates (use version for crates.io, path for local dev)
+libvirt-xdr = { version = "0.1.0", path = "crates/libvirt-xdr" }
+libvirt-codegen = { version = "0.1.0", path = "crates/libvirt-codegen" }
+libvirt = { version = "0.1.0", path = "crates/libvirt" }
 
 # Serialization
 serde = { version = "1", features = ["derive"] }

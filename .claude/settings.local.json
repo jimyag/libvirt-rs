@@ -16,7 +16,10 @@
       "Bash(docker cp:*)",
       "Bash(docker run:*)",
       "WebFetch(domain:raw.githubusercontent.com)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(cargo publish:*)",
+      "WebFetch(domain:crates.io)",
+      "WebSearch"
     ]
   }
 }
