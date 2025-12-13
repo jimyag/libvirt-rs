@@ -76,8 +76,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "37c93d8daa9d8a012fd8ab92f088405fb202ea0b6ab73ee2482ae66af4f42091"
 
 [[package]]
-name = "libvirt"
-version = "0.1.0"
+name = "libvirt-codegen"
+version = "0.1.1"
+dependencies = [
+ "heck",
+ "nom",
+ "prettyplease",
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "libvirt-pure"
+version = "0.1.1"
 dependencies = [
  "async-trait",
  "bytes",
@@ -90,20 +102,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "libvirt-codegen"
-version = "0.1.0"
-dependencies = [
- "heck",
- "nom",
- "prettyplease",
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
 name = "libvirt-xdr"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "bytes",
  "serde",

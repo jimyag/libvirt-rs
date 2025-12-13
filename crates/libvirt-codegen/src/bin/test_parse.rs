@@ -1,6 +1,10 @@
 // Test script to check protocol parsing and code generation
 fn main() {
-    let content = std::fs::read_to_string("proto/remote_protocol.x").unwrap();
+    // Proto file is now in crates/libvirt/proto/
+    let proto_path = "../libvirt/proto/remote_protocol.x";
+    let content = std::fs::read_to_string(proto_path)
+        .unwrap_or_else(|_| panic!("Failed to read {}", proto_path));
+
     match libvirt_codegen::parser::parse_protocol(&content) {
         Ok(protocol) => {
             println!("Parse successful!");
@@ -8,7 +12,7 @@ fn main() {
             println!("Types: {}", protocol.types.len());
             println!("Procedures: {}", protocol.procedures.len());
 
-            // Print first 5 procedures with their args/ret
+            // Print first 10 procedures with their args/ret
             println!("\nFirst 10 procedures:");
             for p in protocol.procedures.iter().take(10) {
                 println!(
@@ -21,10 +25,6 @@ fn main() {
             println!("\nGenerating code...");
             let code = libvirt_codegen::generate(&protocol);
             println!("Generated {} bytes of code", code.len());
-
-            // Write to file for inspection
-            std::fs::write("tmp/generated.rs", &code).unwrap();
-            println!("Written to tmp/generated.rs");
 
             // Show first 2000 chars
             println!("\nFirst 2000 chars of generated code:");

@@ -216,7 +216,7 @@ pub use generated::*;
 ### Basic Example
 
 ```rust
-use libvirt::{Client, ConnectListAllDomainsArgs};
+use libvirt_pure::{Client, ConnectListAllDomainsArgs};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -246,7 +246,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 ### Domain Lifecycle Management
 
 ```rust
-use libvirt::{Client, DomainLookupByNameArgs, DomainSuspendArgs};
+use libvirt_pure::{Client, DomainLookupByNameArgs, DomainSuspendArgs};
 
 async fn suspend_vm(client: &Client, name: &str) -> Result<(), Box<dyn std::error::Error>> {
     // Lookup domain by name
