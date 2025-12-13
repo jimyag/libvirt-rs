@@ -1,0 +1,19 @@
+[package]
+name = "libvirt"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Pure Rust libvirt client library"
+
+[dependencies]
+libvirt-xdr.workspace = true
+tokio.workspace = true
+# tokio-rustls.workspace = true  # TLS support (disabled for now)
+serde.workspace = true
+thiserror.workspace = true
+bytes.workspace = true
+dashmap.workspace = true
+async-trait.workspace = true
+
+[build-dependencies]
+libvirt-codegen.workspace = true

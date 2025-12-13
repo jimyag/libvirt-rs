@@ -1,0 +1,12 @@
+# Build container for cross-compiling to Linux amd64
+FROM rust:1.83-bookworm
+
+WORKDIR /app
+
+# Copy source code
+COPY . .
+
+# Build release
+RUN cargo build --example domain_info -p libvirt --release
+
+# Output location: /app/target/release/examples/domain_info

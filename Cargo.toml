@@ -1,0 +1,41 @@
+[workspace]
+members = ["crates/*"]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/jimyag/libvirt-rs"
+
+[workspace.dependencies]
+# Internal crates
+libvirt-xdr = { path = "crates/libvirt-xdr" }
+libvirt-codegen = { path = "crates/libvirt-codegen" }
+libvirt = { path = "crates/libvirt" }
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+
+# TLS
+tokio-rustls = "0.26"
+rustls = "0.23"
+
+# Code generation
+quote = "1"
+syn = { version = "2", features = ["full"] }
+proc-macro2 = "1"
+prettyplease = "0.2"
+
+# Parsing
+nom = "7"
+
+# Utilities
+thiserror = "2"
+bytes = "1"
+dashmap = "6"
+heck = "0.5"
+async-trait = "0.1"

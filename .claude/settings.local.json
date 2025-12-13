@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cargo build:*)",
+      "Bash(cargo test:*)",
+      "Bash(curl:*)",
+      "Bash(cargo run:*)",
+      "Bash(wc:*)",
+      "Bash(head:*)",
+      "Bash(rustup target list:*)",
+      "Bash(rustup target add:*)",
+      "Bash(zig version:*)",
+      "Bash(docker build:*)",
+      "Bash(docker create:*)",
+      "Bash(docker rm:*)",
+      "Bash(docker cp:*)",
+      "Bash(docker run:*)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(grep:*)"
+    ]
+  }
+}
