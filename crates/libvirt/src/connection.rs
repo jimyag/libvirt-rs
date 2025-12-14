@@ -83,10 +83,15 @@ impl Connection {
         Ok(Self { inner })
     }
 
-    /// Make an RPC call.
+    /// Make an RPC call using the default REMOTE_PROGRAM.
     pub async fn call(&self, procedure: u32, payload: Bytes) -> Result<Bytes> {
+        self.call_program(crate::generated::REMOTE_PROGRAM as u32, procedure, payload).await
+    }
+
+    /// Make an RPC call with a specific program ID.
+    pub async fn call_program(&self, program: u32, procedure: u32, payload: Bytes) -> Result<Bytes> {
         let serial = self.inner.serial.fetch_add(1, Ordering::SeqCst) as i32;
-        let packet = Packet::new_call(procedure, serial, payload);
+        let packet = Packet::new_call_program(program, procedure, serial, payload);
 
         // Create response channel
         let (tx, rx) = oneshot::channel();
@@ -134,6 +139,12 @@ impl Connection {
 impl LibvirtRpc for Connection {
     async fn rpc_call(&self, procedure: u32, payload: Vec<u8>) -> std::result::Result<Vec<u8>, RpcError> {
         let response = self.call(procedure, Bytes::from(payload)).await
+            .map_err(|e| RpcError::Transport(e.to_string()))?;
+        Ok(response.to_vec())
+    }
+
+    async fn rpc_call_program(&self, program: u32, procedure: u32, payload: Vec<u8>) -> std::result::Result<Vec<u8>, RpcError> {
+        let response = self.call_program(program, procedure, Bytes::from(payload)).await
             .map_err(|e| RpcError::Transport(e.to_string()))?;
         Ok(response.to_vec())
     }

@@ -156,25 +156,65 @@ fn protocol_parser(input: &str) -> IResult<&str, Protocol> {
         }
     }
 
-    // Extract procedures from remote_procedure enum
+    // Extract program ID and protocol version from constants
+    extract_protocol_metadata(&mut protocol);
+
+    // Extract procedures from procedure enum
     extract_procedures(&mut protocol);
 
     Ok((input, protocol))
 }
 
-/// Extract procedure definitions from the remote_procedure enum.
+/// Extract program ID and protocol version from constants.
+fn extract_protocol_metadata(protocol: &mut Protocol) {
+    for constant in &protocol.constants {
+        match constant.name.as_str() {
+            "REMOTE_PROGRAM" | "QEMU_PROGRAM" | "LXC_PROGRAM" => {
+                if let ConstValue::Int(v) = &constant.value {
+                    protocol.program_id = Some(*v as u32);
+                }
+                // Set protocol name based on program constant
+                if constant.name.starts_with("QEMU") {
+                    protocol.name = "qemu".to_string();
+                    protocol.proc_prefix = Some("QEMU_PROC".to_string());
+                } else if constant.name.starts_with("LXC") {
+                    protocol.name = "lxc".to_string();
+                    protocol.proc_prefix = Some("LXC_PROC".to_string());
+                } else {
+                    protocol.name = "remote".to_string();
+                    protocol.proc_prefix = Some("REMOTE_PROC".to_string());
+                }
+            }
+            "REMOTE_PROTOCOL_VERSION" | "QEMU_PROTOCOL_VERSION" | "LXC_PROTOCOL_VERSION" => {
+                if let ConstValue::Int(v) = &constant.value {
+                    protocol.protocol_version = Some(*v as u32);
+                }
+            }
+            _ => {}
+        }
+    }
+}
+
+/// Extract procedure definitions from the procedure enum.
 ///
 /// Each procedure like REMOTE_PROC_DOMAIN_LOOKUP_BY_NAME = 23 maps to:
 /// - args type: remote_domain_lookup_by_name_args (if exists)
 /// - ret type: remote_domain_lookup_by_name_ret (if exists)
 fn extract_procedures(protocol: &mut Protocol) {
-    // Find the remote_procedure enum
+    // Determine the procedure enum name and prefix based on protocol type
+    let (enum_name, proc_prefix, type_prefix) = match protocol.name.as_str() {
+        "qemu" => ("qemu_procedure", "QEMU_PROC_", "qemu_"),
+        "lxc" => ("lxc_procedure", "LXC_PROC_", "lxc_"),
+        _ => ("remote_procedure", "REMOTE_PROC_", "remote_"),
+    };
+
+    // Find the procedure enum
     let procedure_enum = protocol
         .types
         .iter()
         .find_map(|t| {
             if let TypeDef::Enum(e) = t {
-                if e.name == "remote_procedure" {
+                if e.name == enum_name {
                     return Some(e.clone());
                 }
             }
@@ -206,15 +246,15 @@ fn extract_procedures(protocol: &mut Protocol) {
             _ => continue,
         };
 
-        // Convert REMOTE_PROC_DOMAIN_LOOKUP_BY_NAME to remote_domain_lookup_by_name
+        // Convert REMOTE_PROC_DOMAIN_LOOKUP_BY_NAME to domain_lookup_by_name
         let base_name = variant
             .name
-            .strip_prefix("REMOTE_PROC_")
+            .strip_prefix(proc_prefix)
             .unwrap_or(&variant.name)
             .to_lowercase();
 
-        let args_name = format!("remote_{}_args", base_name);
-        let ret_name = format!("remote_{}_ret", base_name);
+        let args_name = format!("{}{}_args", type_prefix, base_name);
+        let ret_name = format!("{}{}_ret", type_prefix, base_name);
 
         let args = if struct_names.contains(&args_name) {
             Some(args_name)

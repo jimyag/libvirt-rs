@@ -6,6 +6,7 @@ Pure Rust implementation of the libvirt client library. This project provides a 
 
 - **Pure Rust**: No C dependencies, fully native Rust implementation
 - **Auto-generated API**: All 453+ libvirt RPC methods are automatically generated from `.x` protocol definition files
+- **Multi-protocol Support**: Supports remote, QEMU, and LXC protocols
 - **Async/Await**: Built on Tokio for async I/O
 - **Type-safe**: Strong typing with serde-based XDR serialization
 
@@ -45,10 +46,6 @@ Pure Rust implementation of the libvirt client library. This project provides a 
 ```plaintext
 libvirt-rs/
 ├── Cargo.toml                 # Workspace configuration
-├── proto/                     # libvirt protocol definition files
-│   ├── remote_protocol.x      # Main remote protocol (source of truth)
-│   └── virnetprotocol.x       # Network protocol definitions
-│
 ├── crates/
 │   ├── libvirt-xdr/           # XDR serialization (serde-based)
 │   │   └── src/
@@ -62,16 +59,20 @@ libvirt-rs/
 │   │       ├── ast.rs         # AST definitions
 │   │       └── generator.rs   # Rust code generator (quote)
 │   │
-│   └── libvirt/               # Main library
+│   └── libvirt/               # Main library (libvirt-pure on crates.io)
 │       ├── build.rs           # Invokes codegen at build time
+│       ├── proto/             # Protocol definition files
+│       │   ├── remote_protocol.x  # Main remote protocol (453 methods)
+│       │   ├── qemu_protocol.x    # QEMU-specific protocol (7 methods)
+│       │   └── lxc_protocol.x     # LXC-specific protocol (1 method)
+│       ├── examples/          # Usage examples
+│       │   ├── domain_info.rs
+│       │   └── domain_lifecycle.rs
 │       └── src/
 │           ├── lib.rs         # Public API (Client, types)
 │           ├── connection.rs  # RPC connection management
 │           ├── packet.rs      # RPC packet encoding/decoding
 │           └── transport/     # Transport implementations
-│
-└── examples/
-    └── test_parse.rs          # Parser test example
 ```
 
 ## How Code Generation Works
@@ -279,7 +280,7 @@ To update the generated code when the libvirt protocol changes:
 
 1. Download the latest `.x` files from libvirt source:
    ```bash
-   curl -o proto/remote_protocol.x \
+   curl -o crates/libvirt/proto/remote_protocol.x \
      https://raw.githubusercontent.com/libvirt/libvirt/master/src/remote/remote_protocol.x
    ```
 

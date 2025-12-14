@@ -23,11 +23,77 @@ pub fn generate(protocol: &Protocol) -> String {
     }
 
     // Generate RPC client methods
-    tokens.extend(generate_client_methods(&protocol.procedures));
+    tokens.extend(generate_client_methods(&protocol.procedures, "remote"));
 
     // Format the output
     let file = syn::parse2(tokens).expect("generated invalid Rust code");
     prettyplease::unparse(&file)
+}
+
+/// Generate Rust code from multiple protocol definitions (remote + qemu + lxc).
+pub fn generate_bundle(bundle: &ProtocolBundle) -> String {
+    let mut tokens = TokenStream::new();
+
+    // Generate prelude
+    tokens.extend(generate_prelude());
+
+    // Generate remote protocol (main protocol with all types)
+    if let Some(remote) = &bundle.remote {
+        // Generate constants
+        for constant in &remote.constants {
+            tokens.extend(generate_constant(constant));
+        }
+
+        // Generate types
+        for type_def in &remote.types {
+            tokens.extend(generate_type(type_def));
+        }
+
+        // Generate LibvirtRpc trait and GeneratedClient
+        tokens.extend(generate_client_methods(&remote.procedures, "remote"));
+    }
+
+    // Generate QEMU protocol (only types and methods, reuses remote types)
+    if let Some(qemu) = &bundle.qemu {
+        tokens.extend(generate_secondary_protocol(qemu, "qemu"));
+    }
+
+    // Generate LXC protocol (only types and methods, reuses remote types)
+    if let Some(lxc) = &bundle.lxc {
+        tokens.extend(generate_secondary_protocol(lxc, "lxc"));
+    }
+
+    // Format the output
+    let file = syn::parse2(tokens).expect("generated invalid Rust code");
+    prettyplease::unparse(&file)
+}
+
+/// Generate code for a secondary protocol (QEMU or LXC).
+/// These protocols reuse types from the remote protocol.
+fn generate_secondary_protocol(protocol: &Protocol, prefix: &str) -> TokenStream {
+    let mut tokens = TokenStream::new();
+
+    // Generate protocol-specific constants
+    for constant in &protocol.constants {
+        tokens.extend(generate_constant(constant));
+    }
+
+    // Generate protocol-specific types (structs only, skip procedure enums)
+    for type_def in &protocol.types {
+        // Skip the procedure enum - we handle it separately
+        if let TypeDef::Enum(e) = type_def {
+            if e.name.ends_with("_procedure") {
+                tokens.extend(generate_type(type_def));
+                continue;
+            }
+        }
+        tokens.extend(generate_type(type_def));
+    }
+
+    // Generate RPC trait and client for this protocol
+    tokens.extend(generate_secondary_client_methods(&protocol.procedures, prefix, protocol.program_id));
+
+    tokens
 }
 
 fn generate_prelude() -> TokenStream {
@@ -316,10 +382,10 @@ fn to_rust_variant_name(name: &str, enum_name: &str) -> String {
 }
 
 /// Generate RPC client methods from procedure definitions.
-fn generate_client_methods(procedures: &[Procedure]) -> TokenStream {
+fn generate_client_methods(procedures: &[Procedure], _protocol_name: &str) -> TokenStream {
     let methods: Vec<_> = procedures
         .iter()
-        .map(|proc| generate_client_method(proc))
+        .map(|proc| generate_client_method(proc, "REMOTE_PROC_", "remote_"))
         .collect();
 
     quote! {
@@ -328,7 +394,11 @@ fn generate_client_methods(procedures: &[Procedure]) -> TokenStream {
         #[allow(async_fn_in_trait)]
         pub trait LibvirtRpc {
             /// Make an RPC call with the given procedure number and payload.
+            /// Uses the default REMOTE_PROGRAM.
             async fn rpc_call(&self, procedure: u32, payload: Vec<u8>) -> Result<Vec<u8>, RpcError>;
+
+            /// Make an RPC call with a specific program ID.
+            async fn rpc_call_program(&self, program: u32, procedure: u32, payload: Vec<u8>) -> Result<Vec<u8>, RpcError>;
         }
 
         /// Error type for RPC operations.
@@ -383,12 +453,56 @@ fn generate_client_methods(procedures: &[Procedure]) -> TokenStream {
     }
 }
 
+/// Generate RPC client methods for secondary protocols (QEMU, LXC).
+fn generate_secondary_client_methods(procedures: &[Procedure], protocol_name: &str, program_id: Option<u32>) -> TokenStream {
+    let (proc_prefix, type_prefix) = match protocol_name {
+        "qemu" => ("QEMU_PROC_", "qemu_"),
+        "lxc" => ("LXC_PROC_", "lxc_"),
+        _ => ("REMOTE_PROC_", "remote_"),
+    };
+
+    let methods: Vec<_> = procedures
+        .iter()
+        .map(|proc| generate_secondary_client_method(proc, proc_prefix, type_prefix, protocol_name, program_id))
+        .collect();
+
+    let _trait_name = format_ident!("{}Rpc", protocol_name.to_upper_camel_case());
+    let client_name = format_ident!("{}Client", protocol_name.to_upper_camel_case());
+    let _program_const = format_ident!("{}_PROGRAM", protocol_name.to_uppercase());
+
+    quote! {
+        /// Generated RPC client methods for #protocol_name protocol.
+        pub struct #client_name<T: LibvirtRpc> {
+            inner: T,
+        }
+
+        impl<T: LibvirtRpc> #client_name<T> {
+            /// Create a new client wrapping an RPC transport.
+            pub fn new(inner: T) -> Self {
+                Self { inner }
+            }
+
+            /// Get a reference to the inner transport.
+            pub fn inner(&self) -> &T {
+                &self.inner
+            }
+
+            /// Get a mutable reference to the inner transport.
+            pub fn inner_mut(&mut self) -> &mut T {
+                &mut self.inner
+            }
+
+            #(#methods)*
+        }
+    }
+}
+
 /// Generate a single RPC method for a procedure.
-fn generate_client_method(proc: &Procedure) -> TokenStream {
+fn generate_client_method(proc: &Procedure, proc_prefix: &str, _type_prefix: &str) -> TokenStream {
     // Convert REMOTE_PROC_CONNECT_LIST_DOMAINS to connect_list_domains
     let method_name = proc
         .name
-        .strip_prefix("REMOTE_PROC_")
+        .strip_prefix(proc_prefix)
         .unwrap_or(&proc.name)
         .to_lowercase();
     let method_ident = format_ident!("{}", method_name);
@@ -397,7 +511,7 @@ fn generate_client_method(proc: &Procedure) -> TokenStream {
     let proc_variant = format_ident!(
         "Proc{}",
         proc.name
-            .strip_prefix("REMOTE_PROC_")
+            .strip_prefix(proc_prefix)
             .unwrap_or(&proc.name)
             .to_upper_camel_case()
     );
@@ -452,6 +566,79 @@ fn generate_client_method(proc: &Procedure) -> TokenStream {
                 /// RPC method for procedure #method_name.
                 pub async fn #method_ident(&self) -> Result<(), RpcError> {
                     let _ = self.inner.rpc_call(Procedure::#proc_variant as u32, Vec::new()).await?;
+                    Ok(())
+                }
+            }
+        }
+    }
+}
+
+/// Generate a single RPC method for a secondary protocol (QEMU/LXC).
+fn generate_secondary_client_method(
+    proc: &Procedure,
+    proc_prefix: &str,
+    _type_prefix: &str,
+    protocol_name: &str,
+    _program_id: Option<u32>,
+) -> TokenStream {
+    // Convert QEMU_PROC_DOMAIN_MONITOR_COMMAND to domain_monitor_command
+    let method_name = proc
+        .name
+        .strip_prefix(proc_prefix)
+        .unwrap_or(&proc.name)
+        .to_lowercase();
+    let method_ident = format_ident!("{}", method_name);
+
+    // Use procedure number directly since we don't have a Procedure enum for secondary protocols
+    let proc_number = proc.number;
+    let program_const = format_ident!("{}_PROGRAM", protocol_name.to_uppercase());
+
+    match (&proc.args, &proc.ret) {
+        (Some(args_name), Some(ret_name)) => {
+            let args_type = format_ident!("{}", to_rust_type_name(args_name));
+            let ret_type = format_ident!("{}", to_rust_type_name(ret_name));
+
+            quote! {
+                /// RPC method for procedure #method_name.
+                pub async fn #method_ident(&self, args: #args_type) -> Result<#ret_type, RpcError> {
+                    let payload = libvirt_xdr::to_bytes(&args)
+                        .map_err(|e| RpcError::Encode(e.to_string()))?;
+                    let response = self.inner.rpc_call_program(#program_const as u32, #proc_number, payload).await?;
+                    libvirt_xdr::from_bytes(&response)
+                        .map_err(|e| RpcError::Decode(e.to_string()))
+                }
+            }
+        }
+        (Some(args_name), None) => {
+            let args_type = format_ident!("{}", to_rust_type_name(args_name));
+
+            quote! {
+                /// RPC method for procedure #method_name.
+                pub async fn #method_ident(&self, args: #args_type) -> Result<(), RpcError> {
+                    let payload = libvirt_xdr::to_bytes(&args)
+                        .map_err(|e| RpcError::Encode(e.to_string()))?;
+                    let _ = self.inner.rpc_call_program(#program_const as u32, #proc_number, payload).await?;
+                    Ok(())
+                }
+            }
+        }
+        (None, Some(ret_name)) => {
+            let ret_type = format_ident!("{}", to_rust_type_name(ret_name));
+
+            quote! {
+                /// RPC method for procedure #method_name.
+                pub async fn #method_ident(&self) -> Result<#ret_type, RpcError> {
+                    let response = self.inner.rpc_call_program(#program_const as u32, #proc_number, Vec::new()).await?;
+                    libvirt_xdr::from_bytes(&response)
+                        .map_err(|e| RpcError::Decode(e.to_string()))
+                }
+            }
+        }
+        (None, None) => {
+            quote! {
+                /// RPC method for procedure #method_name.
+                pub async fn #method_ident(&self) -> Result<(), RpcError> {
+                    let _ = self.inner.rpc_call_program(#program_const as u32, #proc_number, Vec::new()).await?;
                     Ok(())
                 }
             }

@@ -7,6 +7,12 @@ pub struct Protocol {
     pub constants: Vec<Constant>,
     pub types: Vec<TypeDef>,
     pub procedures: Vec<Procedure>,
+    /// Program ID (e.g., REMOTE_PROGRAM = 0x20008086)
+    pub program_id: Option<u32>,
+    /// Protocol version
+    pub protocol_version: Option<u32>,
+    /// Procedure enum name prefix (e.g., "REMOTE_PROC" or "QEMU_PROC")
+    pub proc_prefix: Option<String>,
 }
 
 impl Protocol {
@@ -16,7 +22,27 @@ impl Protocol {
             constants: Vec::new(),
             types: Vec::new(),
             procedures: Vec::new(),
+            program_id: None,
+            protocol_version: None,
+            proc_prefix: None,
         }
+    }
+}
+
+/// Collection of multiple protocols for code generation.
+#[derive(Debug, Clone, Default)]
+pub struct ProtocolBundle {
+    /// The main remote protocol (types are shared from here)
+    pub remote: Option<Protocol>,
+    /// QEMU-specific protocol
+    pub qemu: Option<Protocol>,
+    /// LXC-specific protocol
+    pub lxc: Option<Protocol>,
+}
+
+impl ProtocolBundle {
+    pub fn new() -> Self {
+        Self::default()
     }
 }
 

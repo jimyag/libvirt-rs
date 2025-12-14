@@ -1,9 +1,13 @@
 // Test script to check protocol parsing and code generation
 fn main() {
-    // Proto file is now in crates/libvirt/proto/
-    let proto_path = "../libvirt/proto/remote_protocol.x";
-    let content = std::fs::read_to_string(proto_path)
-        .unwrap_or_else(|_| panic!("Failed to read {}", proto_path));
+    // Proto file is in crates/libvirt/proto/
+    // Use path relative to workspace root when running from workspace
+    let proto_path = std::env::current_dir()
+        .map(|d| d.join("crates/libvirt/proto/remote_protocol.x"))
+        .unwrap_or_else(|_| std::path::PathBuf::from("crates/libvirt/proto/remote_protocol.x"));
+
+    let content = std::fs::read_to_string(&proto_path)
+        .unwrap_or_else(|_| panic!("Failed to read {:?}", proto_path));
 
     match libvirt_codegen::parser::parse_protocol(&content) {
         Ok(protocol) => {

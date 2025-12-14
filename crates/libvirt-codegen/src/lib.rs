@@ -7,6 +7,6 @@ pub mod ast;
 pub mod generator;
 pub mod parser;
 
-pub use ast::Protocol;
-pub use generator::generate;
-pub use parser::parse_file;
+pub use ast::{Protocol, ProtocolBundle};
+pub use generator::{generate, generate_bundle};
+pub use parser::{parse_file, parse_protocol};

@@ -91,10 +91,15 @@ pub struct Packet {
 }
 
 impl Packet {
-    /// Create a new call packet.
+    /// Create a new call packet for the default REMOTE_PROGRAM.
     pub fn new_call(procedure: u32, serial: i32, payload: Bytes) -> Self {
+        Self::new_call_program(REMOTE_PROGRAM as u32, procedure, serial, payload)
+    }
+
+    /// Create a new call packet with a specific program ID.
+    pub fn new_call_program(program: u32, procedure: u32, serial: i32, payload: Bytes) -> Self {
         Self {
-            program: REMOTE_PROGRAM as u32,
+            program,
             version: REMOTE_PROTOCOL_VERSION as u32,
             procedure,
             msg_type: MessageType::Call,

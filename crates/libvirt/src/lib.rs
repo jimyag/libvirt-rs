@@ -41,6 +41,12 @@ pub use generated::*;
 /// Re-export GeneratedClient for convenient API access.
 pub type LibvirtClient = GeneratedClient<Connection>;
 
+/// Re-export QemuClient for QEMU-specific API access.
+pub type QemuRpcClient = QemuClient<Connection>;
+
+/// Re-export LxcClient for LXC-specific API access.
+pub type LxcRpcClient = LxcClient<Connection>;
+
 /// High-level libvirt client that wraps the generated API.
 ///
 /// This client provides a convenient interface for connecting to libvirt
@@ -118,10 +124,46 @@ impl Client {
         &self.rpc
     }
 
+    /// Get the underlying connection.
+    pub fn connection(&self) -> &Connection {
+        self.rpc.inner()
+    }
+
     /// Close the connection.
     pub async fn close(&self) -> Result<()> {
         self.rpc.connect_close().await
             .map_err(|e| Error::Protocol(format!("connect_close failed: {}", e)))?;
         Ok(())
+    }
+}
+
+/// QEMU-specific client for QEMU monitor commands and other QEMU-specific APIs.
+///
+/// # Example
+///
+/// ```ignore
+/// use libvirt::{Client, QemuClientExt};
+///
+/// let client = Client::connect("qemu:///system").await?;
+/// let qemu = client.qemu();
+///
+/// // Execute QEMU monitor command
+/// let result = qemu.domain_monitor_command(args).await?;
+/// ```
+pub struct QemuClientWrapper {
+    inner: QemuClient<Connection>,
+}
+
+impl QemuClientWrapper {
+    /// Create a new QEMU client wrapper from a connection.
+    pub fn new(conn: Connection) -> Self {
+        Self {
+            inner: QemuClient::new(conn),
+        }
+    }
+
+    /// Get access to QEMU-specific RPC methods.
+    pub fn rpc(&self) -> &QemuClient<Connection> {
+        &self.inner
     }
 }
