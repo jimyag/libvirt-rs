@@ -1,0 +1,2 @@
+# Mark .x protocol files as vendored (ignored in GitHub language stats, but not collapsed in PR reviews)
+*.x linguist-vendored
